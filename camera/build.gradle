@@ -45,7 +45,12 @@ java {
 }
 
 jar {
+	// Read here, at configuration time: the configuration cache does not allow
+	// `project` inside a closure that runs while the task executes.
+	def baseName = project.archives_base_name
+	inputs.property "baseName", baseName
+
 	from(rootProject.file("LICENSE")) {
-		rename { "${it}_${project.archives_base_name}" }
+		rename { "${it}_${baseName}" }
 	}
 }
