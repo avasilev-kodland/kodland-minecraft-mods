@@ -1,0 +1,8 @@
+{
+  "item.kodland_camera.camera": "Фотоаппарат",
+  "kodland_camera.polaroid.title": "Полароид",
+  "kodland_camera.polaroid.delete": "Удалить фото",
+  "kodland_camera.polaroid.save": "Сохранить фото",
+  "kodland_camera.photo_saved": "Фото сохранено!",
+  "kodland_camera.photo_failed": "Не получилось сохранить фото"
+}

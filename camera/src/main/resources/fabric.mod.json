@@ -1,0 +1,20 @@
+{
+	"schemaVersion": 1,
+	"id": "kodland_camera",
+	"version": "${version}",
+	"name": "Kodland Camera",
+	"description": "A camera item: take a photo of the world, keep it as a polaroid.",
+	"authors": ["Kodland"],
+	"license": "All-Rights-Reserved",
+	"environment": "*",
+	"entrypoints": {
+		"main": ["com.kodland.camera.KodlandCamera"],
+		"client": ["com.kodland.camera.client.KodlandCameraClient"]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
