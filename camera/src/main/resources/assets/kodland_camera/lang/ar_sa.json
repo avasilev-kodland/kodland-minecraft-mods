@@ -1,0 +1,8 @@
+{
+  "item.kodland_camera.camera": "كاميرا",
+  "kodland_camera.polaroid.title": "بولارويد",
+  "kodland_camera.polaroid.delete": "احذف الصورة",
+  "kodland_camera.polaroid.save": "احفظ الصورة",
+  "kodland_camera.photo_saved": "تم حفظ الصورة!",
+  "kodland_camera.photo_failed": "تعذّر حفظ الصورة"
+}

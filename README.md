@@ -5,7 +5,7 @@ Kodland Launcher downloads the released jars through the pack manifest.
 
 | Mod | Folder | Manifest id | What it does |
 |---|---|---|---|
-| Camera | — | `kodland-camera` | Take photos in the game; they appear in the launcher's Albums Studio |
+| Camera | [`camera/`](camera/) | `kodland-camera` | Take photos in the game; they appear in the launcher's Albums Studio |
 
 ## Build and run
 

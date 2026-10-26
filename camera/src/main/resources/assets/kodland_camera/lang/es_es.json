@@ -1,0 +1,8 @@
+{
+  "item.kodland_camera.camera": "Cámara",
+  "kodland_camera.polaroid.title": "Polaroid",
+  "kodland_camera.polaroid.delete": "Borrar foto",
+  "kodland_camera.polaroid.save": "Guardar foto",
+  "kodland_camera.photo_saved": "¡Foto guardada!",
+  "kodland_camera.photo_failed": "No se pudo guardar la foto"
+}

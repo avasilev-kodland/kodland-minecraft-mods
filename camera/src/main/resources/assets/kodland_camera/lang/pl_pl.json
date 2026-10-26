@@ -1,0 +1,8 @@
+{
+  "item.kodland_camera.camera": "Aparat",
+  "kodland_camera.polaroid.title": "Polaroid",
+  "kodland_camera.polaroid.delete": "Usuń zdjęcie",
+  "kodland_camera.polaroid.save": "Zapisz zdjęcie",
+  "kodland_camera.photo_saved": "Zdjęcie zapisane!",
+  "kodland_camera.photo_failed": "Nie udało się zapisać zdjęcia"
+}

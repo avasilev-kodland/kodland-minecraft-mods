@@ -1,0 +1,8 @@
+{
+  "item.kodland_camera.camera": "Fotoğraf Makinesi",
+  "kodland_camera.polaroid.title": "Polaroid",
+  "kodland_camera.polaroid.delete": "Fotoğrafı sil",
+  "kodland_camera.polaroid.save": "Fotoğrafı kaydet",
+  "kodland_camera.photo_saved": "Fotoğraf kaydedildi!",
+  "kodland_camera.photo_failed": "Fotoğraf kaydedilemedi"
+}
