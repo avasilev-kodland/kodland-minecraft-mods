@@ -1,0 +1,19 @@
+pluginManagement {
+	repositories {
+		maven {
+			name = 'Fabric'
+			url = 'https://maven.fabricmc.net/'
+		}
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+rootProject.name = 'kodland-minecraft-mods'
+
+// Every folder with a build.gradle is a mod. Adding a mod is adding a folder.
+file('.').eachDir { dir ->
+	if (new File(dir, 'build.gradle').exists()) {
+		include dir.name
+	}
+}

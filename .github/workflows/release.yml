@@ -1,0 +1,45 @@
+name: release
+
+# A tag `<mod>-v<version>` (for example `camera-v0.1.0`) builds that mod and
+# attaches its jar to a GitHub Release. The jar's address on the release is what
+# the pack manifest points at, so the version in the tag must match the mod's
+# gradle.properties - otherwise the job stops before publishing anything.
+on:
+  push:
+    tags: ["*-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Read the tag
+        id: tag
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          MOD="${TAG%-v*}"
+          VERSION="${TAG##*-v}"
+          test -f "$MOD/build.gradle" || { echo "no mod called $MOD"; exit 1; }
+          DECLARED="$(grep '^mod_version=' "$MOD/gradle.properties" | cut -d= -f2)"
+          test "$DECLARED" = "$VERSION" || { echo "tag says $VERSION, $MOD/gradle.properties says $DECLARED"; exit 1; }
+          echo "mod=$MOD" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - run: ./gradlew ":${{ steps.tag.outputs.mod }}:build"
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          MOD="${{ steps.tag.outputs.mod }}"
+          JAR="$(ls "$MOD"/build/libs/*.jar | grep -v -- '-sources.jar$' | head -1)"
+          sha512sum "$JAR" | tee "$JAR.sha512"
+          gh release create "$GITHUB_REF_NAME" "$JAR" "$JAR.sha512" \
+            --title "$MOD ${{ steps.tag.outputs.version }}" \
+            --notes "Minecraft $(grep '^minecraft_version=' gradle.properties | cut -d= -f2), Fabric. sha512 is attached for the pack manifest."

@@ -1,0 +1,4 @@
+// Declared once here, applied by each mod's own build.gradle.
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}" apply false
+}
