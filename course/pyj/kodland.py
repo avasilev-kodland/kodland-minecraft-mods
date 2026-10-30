@@ -26,6 +26,7 @@ _System = JavaClass("java.lang.System")
 _Math = JavaClass("java.lang.Math")
 _Minecraft = JavaClass("net.minecraft.client.Minecraft")
 _Identifier = JavaClass("net.minecraft.resources.Identifier")
+_GameRules = JavaClass("net.minecraft.world.level.gamerules.GameRules")
 
 _rng = _Random()
 # What this program already did to the score line and the bar. The game answers
@@ -143,6 +144,26 @@ def _bar_exists():
     return server.getCustomBossEvents().get(_Identifier.parse("kod:bar")) is not None
 
 
+def _quiet_chat():
+    # The game answers every command with a white line ("Played sound ...",
+    # "Changed the block ..."), and a program sends dozens of commands a second,
+    # so the chat would be nothing but those lines. The world's rule
+    # send_command_feedback turns them off. Errors (red) still show, and so does
+    # everything a program writes itself with echo() or print().
+    # Set on the game's own server, not with /gamerule: no line in the chat for
+    # this either, and it works in a world without cheats.
+    server = _server()
+    if server is None:
+        return
+    rule = _GameRules.SEND_COMMAND_FEEDBACK
+    if not server.getGameRules().get(rule):
+        return
+
+    def turn_off():
+        server.getGameRules().set(rule, False, server)
+    server.execute(turn_off)
+
+
 def _score_exists():
     if _score["state"] != "unknown":
         return _score["state"] == "made"
@@ -161,6 +182,10 @@ def here():
 def version():
     echo("kodland " + VERSION)
     return VERSION
+
+
+# Every program that imports the library gets a quiet chat.
+_quiet_chat()
 
 
 # ---------------------------------------------------------------- module 4: light and sound
