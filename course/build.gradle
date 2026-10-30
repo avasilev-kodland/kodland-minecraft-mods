@@ -1,0 +1,159 @@
+plugins {
+	id 'net.fabricmc.fabric-loom'
+}
+
+// The library is what this mod carries, so its VERSION line is the mod's version
+// too: one number to change, and the jar name, fabric.mod.json and the release
+// tag all follow it. Read at configuration time on purpose (configuration cache).
+def library = file('pyj/kodland.py')
+def versionMatch = (library.text =~ /(?m)^VERSION\s*=\s*"(\d+\.\d+\.\d+)"\s*$/)
+if (!versionMatch.find()) {
+	throw new GradleException('course/pyj/kodland.py needs a line VERSION = "x.y.z"')
+}
+version = versionMatch.group(1)
+
+base {
+	archivesName = project.archives_base_name
+}
+
+repositories {
+	// Only for the dev client: the course pack ships Minescript itself.
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = 'Modrinth'
+				url = 'https://api.modrinth.com/maven'
+			}
+		}
+		filter {
+			includeGroup 'maven.modrinth'
+		}
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	// The mod itself needs neither. The dev client gets Minescript (and the
+	// Fabric API it needs) so the library can be tried in the game;
+	// `-PnoMinescript` starts the game without them.
+	if (!providers.gradleProperty('noMinescript').present) {
+		localRuntime "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+		localRuntime "maven.modrinth:minescript:${project.minescript_version}"
+	}
+
+	testImplementation platform('org.junit:junit-bom:5.13.4')
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+loom {
+	runs {
+		client {
+			// `./run-dev.sh course -Pworld=<folder in run/saves>` goes straight
+			// into that world, to try a library change without clicking.
+			def world = providers.gradleProperty('world')
+			if (world.present) {
+				programArgs '--quickPlaySingleplayer', world.get()
+			}
+		}
+	}
+}
+
+/*
+ * What a methodologist may put into pyj/, checked before anything is packed.
+ *
+ * - Names are kodland.py or kodland_<something>.py. The folder in the game is
+ *   shared with Minescript's own modules (minescript.py, sys.py, math.py ...);
+ *   a file of ours under one of those names would be overwritten by Minescript
+ *   and written back by us on every start.
+ * - Only English, only ASCII. Every function, parameter and name a child calls
+ *   is in English, and so is everything around it: the course runs in nine
+ *   languages and the library is the one part that is the same for all of them.
+ */
+def checkLibrary = tasks.register('checkLibrary') {
+	def dir = file('pyj')
+	inputs.dir(dir)
+	doLast {
+		def files = (dir.listFiles() ?: []) as List
+		def problems = []
+		if (!files.any { it.name == 'kodland.py' }) {
+			problems << 'pyj/kodland.py is missing'
+		}
+		files.findAll { !it.name.startsWith('.') }.sort { it.name }.each { file ->
+			if (!file.isFile() || !(file.name ==~ /kodland(_[a-z0-9_]+)?\.py/)) {
+				problems << "pyj/${file.name}: only kodland.py and kodland_<name>.py files belong here"
+				return
+			}
+			file.readLines('UTF-8').eachWithIndex { line, i ->
+				def bad = line.find(/[^\x20-\x7E\t]/)
+				if (bad != null) {
+					problems << "pyj/${file.name}:${i + 1}: '${bad}' is not English (ASCII only): ${line.trim()}"
+				}
+			}
+		}
+		if (!problems.isEmpty()) {
+			throw new GradleException('The course library is not ready:\n  ' + problems.join('\n  '))
+		}
+	}
+}
+
+processResources {
+	dependsOn checkLibrary
+	def version = project.version
+	inputs.property 'version', version
+
+	filesMatching('fabric.mod.json') {
+		expand 'version': version
+	}
+
+	// pyj/ is the one folder a methodologist edits; inside the jar it is
+	// kodland/pyj/, which is where the mod reads it from.
+	from('pyj') {
+		into 'kodland/pyj'
+		exclude '.*'
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+}
+
+java {
+	withSourcesJar()
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+test {
+	useJUnitPlatform()
+}
+
+// The same sources give the same jar, here and in the release job, so the
+// sha512 printed by `build` is the one the release will carry.
+tasks.withType(AbstractArchiveTask).configureEach {
+	preserveFileTimestamps = false
+	reproducibleFileOrder = true
+}
+
+jar {
+	def baseName = project.archives_base_name
+	inputs.property 'baseName', baseName
+
+	from(rootProject.file('LICENSE')) {
+		rename { "${it}_${baseName}" }
+	}
+}
+
+def printSha512 = tasks.register('printSha512') {
+	def jarFile = jar.archiveFile
+	inputs.file(jarFile)
+	doLast {
+		def file = jarFile.get().asFile
+		def digest = java.security.MessageDigest.getInstance('SHA-512').digest(file.bytes)
+		println "${file.name}"
+		println "sha512 ${digest.encodeHex()}"
+	}
+}
+build.finalizedBy printSha512
