@@ -2,8 +2,9 @@ name: release
 
 # A tag `<mod>-v<version>` (for example `camera-v0.1.0`) builds that mod and
 # attaches its jar to a GitHub Release. The jar's address on the release is what
-# the pack manifest points at, so the version in the tag must match the mod's
-# gradle.properties - otherwise the job stops before publishing anything.
+# the pack manifest points at, so the version in the tag must match the version
+# Gradle builds the mod with - otherwise the job stops before publishing anything.
+# Most mods keep it in gradle.properties; `course` takes it from its library.
 on:
   push:
     tags: ["*-v*"]
@@ -28,8 +29,8 @@ jobs:
           MOD="${TAG%-v*}"
           VERSION="${TAG##*-v}"
           test -f "$MOD/build.gradle" || { echo "no mod called $MOD"; exit 1; }
-          DECLARED="$(grep '^mod_version=' "$MOD/gradle.properties" | cut -d= -f2)"
-          test "$DECLARED" = "$VERSION" || { echo "tag says $VERSION, $MOD/gradle.properties says $DECLARED"; exit 1; }
+          DECLARED="$(./gradlew -q ":$MOD:properties" --property version | sed -n 's/^version: //p')"
+          test "$DECLARED" = "$VERSION" || { echo "tag says $VERSION, the $MOD build says $DECLARED"; exit 1; }
           echo "mod=$MOD" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - run: ./gradlew ":${{ steps.tag.outputs.mod }}:build"

@@ -1,0 +1,21 @@
+{
+	"schemaVersion": 1,
+	"id": "kodland_course",
+	"version": "${version}",
+	"name": "Kodland Course",
+	"description": "Puts the course library kodland.py where Minescript programs can import it.",
+	"authors": ["Kodland"],
+	"license": "All-Rights-Reserved",
+	"environment": "client",
+	"entrypoints": {
+		"client": ["com.kodland.course.KodlandCourse"]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~26.2",
+		"java": ">=25"
+	},
+	"suggests": {
+		"minescript": "*"
+	}
+}
