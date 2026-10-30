@@ -19,14 +19,25 @@ if "Pyjinn" not in sys.version:
 
 from minescript import *
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 
 _Random = JavaClass("java.util.Random")
 _System = JavaClass("java.lang.System")
 _Math = JavaClass("java.lang.Math")
+_Minecraft = JavaClass("net.minecraft.client.Minecraft")
+_Identifier = JavaClass("net.minecraft.resources.Identifier")
 
 _rng = _Random()
-_ready = {"score": False, "bar": False}
+# What this program already did to the score line and the bar. The game answers
+# a command that changes nothing with a red "Nothing changed" line, so a value
+# that is already there is not sent again. "state": "unknown" (maybe left by an
+# earlier program), "made" or "removed" by this program. The game runs commands a
+# moment later, so after this program removed one, asking the game would still
+# find it - the state is trusted instead.
+_score = {"state": "unknown", "label": None}
+_bar = {"state": "unknown", "label": None, "max": None, "value": None}
+# Timers and events stop() was asked to stop, see stop().
+_stopped = {}
 
 # ---------------------------------------------------------------- helpers
 
@@ -117,6 +128,30 @@ def _text(text):
     return "\"" + str(text).replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
 
+def _server():
+    # The game's own server in a single player world; None on a multiplayer server.
+    return _Minecraft.getInstance().getSingleplayerServer()
+
+
+def _bar_exists():
+    # Asked quietly: "bossbar add" on a bar left by an earlier program is a red error.
+    if _bar["state"] != "unknown":
+        return _bar["state"] == "made"
+    server = _server()
+    if server is None:
+        return False
+    return server.getCustomBossEvents().get(_Identifier.parse("kod:bar")) is not None
+
+
+def _score_exists():
+    if _score["state"] != "unknown":
+        return _score["state"] == "made"
+    server = _server()
+    if server is None:
+        return False
+    return server.getScoreboard().getObjective("kod_score") is not None
+
+
 def here():
     """Block under the player's feet as [x, y, z] whole numbers."""
     p = player_position()
@@ -191,7 +226,11 @@ def holding(item):
 
 def on_click(action, wand="blaze_rod", distance=64):
     """Right click with the wand -> action(x, y, z, block) for the block under the crosshair."""
+    me = {"id": -1}
+
     def handler(event):
+        if me["id"] in _stopped:
+            return
         if event.button != 1 or event.action != 1 or event.screen is not None:
             return
         if not holding(wand):
@@ -201,30 +240,59 @@ def on_click(action, wand="blaze_rod", distance=64):
             return
         p = target.position
         action(p[0], p[1], p[2], _name(target.type))
-    return add_event_listener("mouse", handler)
+    me["id"] = add_event_listener("mouse", handler)
+    return me["id"]
 
 
 def on_word(word, action):
     """The player writes this word in the chat -> action(). The word is not sent to the chat."""
+    me = {"id": -1}
+
     def handler(event):
+        if me["id"] in _stopped:
+            return
         action()
-    return add_event_listener("outgoing_chat_intercept", handler,
-                              pattern="(?i)^\\s*" + str(word) + "\\s*$")
+    me["id"] = add_event_listener("outgoing_chat_intercept", handler,
+                                  pattern="(?i)^\\s*" + str(word) + "\\s*$")
+    return me["id"]
 
 
 def every(ms, action):
     """Call action() every ms milliseconds. Returns an id for stop()."""
-    return set_interval(action, ms)
+    me = {"id": -1}
+
+    def tick():
+        if me["id"] in _stopped:
+            return
+        action()
+    me["id"] = set_interval(tick, ms)
+    return me["id"]
 
 
 def later(ms, action):
     """Call action() once after ms milliseconds."""
-    return set_timeout(action, ms)
+    me = {"id": -1}
+
+    def once():
+        if me["id"] in _stopped:
+            return
+        action()
+    me["id"] = set_timeout(once, ms)
+    return me["id"]
 
 
 def stop(timer_id):
-    """Stop a timer or an event from every(), later(), steps(), on_click(), on_word()."""
-    return remove_event_listener(timer_id)
+    """Stop a timer or an event from every(), later(), steps(), on_click(), on_word().
+    Can be called from inside that timer: the rest of the function still runs."""
+    # Minescript ends the program the moment its last timer or event is removed,
+    # and every game call after that fails. So the timer is only marked here and
+    # removed on the next frame, when the function that called stop() is done.
+    _stopped[timer_id] = True
+
+    def remove_now():
+        remove_event_listener(timer_id)
+    set_timeout(remove_now, 0)
+    return True
 
 
 def steps(items, ms, action, loop=False):
@@ -233,11 +301,13 @@ def steps(items, ms, action, loop=False):
     state = {"i": 0, "id": -1}
 
     def tick():
+        if state["id"] in _stopped:
+            return
         if state["i"] >= len(items):
             if loop:
                 state["i"] = 0
             else:
-                remove_event_listener(state["id"])
+                stop(state["id"])
                 return
         item = items[state["i"]]
         state["i"] = state["i"] + 1
@@ -324,32 +394,58 @@ def firework(x, y, z, color="red", shape="large_ball"):
 
 def show_score(value, label="Score"):
     """Score on the side of the screen."""
-    if not _ready["score"]:
-        execute("scoreboard objectives add kod_score dummy")
-        _ready["score"] = True
-    execute("scoreboard objectives modify kod_score displayname " + _text(label))
-    execute("scoreboard objectives setdisplay sidebar kod_score")
+    if _score["state"] != "made":
+        # A fresh line every program: one left by an earlier program is removed first.
+        if _score_exists():
+            execute("scoreboard objectives remove kod_score")
+        execute("scoreboard objectives add kod_score dummy " + _text(label))
+        execute("scoreboard objectives setdisplay sidebar kod_score")
+        _score["state"] = "made"
+        _score["label"] = label
+    if label != _score["label"]:
+        execute("scoreboard objectives modify kod_score displayname " + _text(label))
+        _score["label"] = label
     execute("scoreboard players set @a kod_score " + _n(int(value)))
 
 
 def hide_score():
-    execute("scoreboard objectives setdisplay sidebar")
+    """Remove the score from the screen."""
+    if _score_exists():
+        execute("scoreboard objectives remove kod_score")
+    _score["state"] = "removed"
 
 
 def bar(value, maximum, label=""):
     """Bar at the top of the screen, e.g. time left."""
-    if not _ready["bar"]:
+    top = max(1, int(maximum))
+    now = min(top, max(0, int(value)))
+    if _bar["state"] != "made":
+        # A fresh bar every program: one left by an earlier program is removed first.
+        # A new bar has max 100, value 0, is visible and is shown to nobody.
+        if _bar_exists():
+            execute("bossbar remove kod:bar")
         execute("bossbar add kod:bar " + _text(label))
-        _ready["bar"] = True
-    execute("bossbar set kod:bar name " + _text(label))
-    execute("bossbar set kod:bar max " + _n(max(1, int(maximum))))
-    execute("bossbar set kod:bar value " + _n(max(0, int(value))))
-    execute("bossbar set kod:bar players @a")
-    execute("bossbar set kod:bar visible true")
+        execute("bossbar set kod:bar players @a")
+        _bar["state"] = "made"
+        _bar["label"] = label
+        _bar["max"] = 100
+        _bar["value"] = 0
+    if label != _bar["label"]:
+        execute("bossbar set kod:bar name " + _text(label))
+        _bar["label"] = label
+    if top != _bar["max"]:
+        execute("bossbar set kod:bar max " + _n(top))
+        _bar["max"] = top
+    if now != _bar["value"]:
+        execute("bossbar set kod:bar value " + _n(now))
+        _bar["value"] = now
 
 
 def hide_bar():
-    execute("bossbar set kod:bar visible false")
+    """Remove the bar from the screen."""
+    if _bar_exists():
+        execute("bossbar remove kod:bar")
+    _bar["state"] = "removed"
 
 
 def title(text, subtitle=""):
