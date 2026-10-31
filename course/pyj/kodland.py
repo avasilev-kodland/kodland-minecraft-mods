@@ -19,7 +19,7 @@ if "Pyjinn" not in sys.version:
 
 from minescript import *
 
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 
 _Random = JavaClass("java.util.Random")
 _System = JavaClass("java.lang.System")
@@ -174,9 +174,26 @@ def _score_exists():
 
 
 def here():
-    """Block under the player's feet as [x, y, z] whole numbers."""
+    """Cell where the player's feet are, as [x, y, z] whole numbers. The block under the feet is y - 1."""
     p = player_position()
     return [int(_Math.floor(p[0])), int(_Math.floor(p[1])), int(_Math.floor(p[2]))]
+
+
+def block_at(dx, dy, dz):
+    """Block near the player, counted like ~ in commands: block_at(0, -1, 0) is the block under the feet.
+    Returns a short name: "air", "lantern", "stone"..."""
+    p = here()
+    block = getblock(p[0] + int(dx), p[1] + int(dy), p[2] + int(dz))
+    if block is None:
+        return "unknown"
+    name = _name(block)
+    # The game answers void_air for a chunk that is not loaded and for a cell
+    # above or below the world: nothing is known there. cave_air is real air.
+    if name == "void_air":
+        return "unknown"
+    if name == "cave_air":
+        return "air"
+    return name
 
 
 def version():
