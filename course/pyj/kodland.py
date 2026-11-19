@@ -19,11 +19,12 @@ if "Pyjinn" not in sys.version:
 
 from minescript import *
 
-VERSION = "0.1.2"
+VERSION = "0.1.3"
 
 _Random = JavaClass("java.util.Random")
 _System = JavaClass("java.lang.System")
 _Math = JavaClass("java.lang.Math")
+_BigDecimal = JavaClass("java.math.BigDecimal")
 _Minecraft = JavaClass("net.minecraft.client.Minecraft")
 _Identifier = JavaClass("net.minecraft.resources.Identifier")
 _GameRules = JavaClass("net.minecraft.world.level.gamerules.GameRules")
@@ -77,13 +78,19 @@ INSTRUMENTS = ["harp", "bass", "basedrum", "snare", "hat", "bell", "flute", "chi
 
 
 def _n(value):
-    # Number as text for a command: 3 -> "3", 2.5 -> "2.5"
-    return str(value)
+    # Number as text for a command: 3 -> "3", 2.5 -> "2.5".
+    # A big or tiny decimal prints as "-2.98331015E7" (Java's way), which the game
+    # does not read as a coordinate - far from spawn every command would fail.
+    # Such a number is written out in full: "-29833101.5".
+    text = str(value)
+    if text.find("E") < 0:
+        return text
+    return _BigDecimal.valueOf(float(value)).toPlainString()
 
 
 def _f(value):
     # Float for SNBT: 0.5 -> "0.5f"
-    return str(float(value)) + "f"
+    return _n(float(value)) + "f"
 
 
 def _name(block_or_item):
